@@ -14,6 +14,13 @@ dist
 dist-ssr
 *.local
 
+# Artefacts de test
+coverage
+playwright-report
+test-results
+blob-report
+playwright/.cache
+
 # Variables d'environnement (secrets)
 .env
 .env.local

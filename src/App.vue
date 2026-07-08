@@ -63,12 +63,7 @@ onMounted(loadMessages)
       </label>
       <label>
         Message
-        <textarea
-          v-model="content"
-          rows="3"
-          placeholder="Laissez un message…"
-          required
-        ></textarea>
+        <textarea v-model="content" rows="3" placeholder="Laissez un message…" required></textarea>
       </label>
       <button type="submit" :disabled="submitting">
         {{ submitting ? 'Envoi…' : 'Signer' }}
