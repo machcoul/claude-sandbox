@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Dépendances npm (package.json / package-lock.json)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "develop"
+    open-pull-requests-limit: 5
+    groups:
+      # Regroupe mineures + patch dans une seule PR pour limiter le bruit
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Mises à jour des GitHub Actions (.github/workflows/*)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "develop"
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
