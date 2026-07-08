@@ -54,6 +54,15 @@ export default [
     },
   },
 
+  // Règles projet spécifiques aux composants Vue
+  {
+    files: ['**/*.vue'],
+    rules: {
+      // Interdit v-html (risque XSS) : erreur, pas simple avertissement
+      'vue/no-v-html': 'error',
+    },
+  },
+
   // Désactive les règles ESLint qui entrent en conflit avec Prettier
   // (doit rester en dernier)
   skipFormatting,
