@@ -1,0 +1,29 @@
+name: gitleaks
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+  # Permet aussi un scan complet à la demande depuis l'onglet Actions
+  workflow_dispatch:
+# Sur les events pull_request, l'action liste les commits de la PR via l'API
+# GitHub : il lui faut donc l'accès en lecture aux PR (sinon 403).
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  scan:
+    name: Détection de secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 récupère TOUT l'historique Git, pour que gitleaks
+          # puisse le scanner en entier (et pas seulement le dernier commit).
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Licence requise UNIQUEMENT si le dépôt appartient à une organisation
+          # GitHub. Pour un compte perso, laisser commenté.
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
