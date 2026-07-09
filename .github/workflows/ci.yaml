@@ -12,9 +12,16 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run lint
-      # Tests unitaires + composants (Vitest). Rapides, Supabase mocké, hors ligne.
-      # L'E2E (Playwright) est volontairement séparé car plus lourd — voir e2e/README.md.
-      - run: npm run test
+      # Tests unitaires + composants (Vitest) + couverture. Rapides, Supabase mocké,
+      # hors ligne. L'E2E (Playwright) est volontairement séparé car plus lourd —
+      # voir e2e/README.md.
+      - run: npm run test:coverage
+      # Publication de la couverture sur Codecov (repo public : aucun token requis).
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
       - run: npm run build
   migration-check:
     runs-on: ubuntu-latest

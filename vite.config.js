@@ -14,5 +14,12 @@ export default defineConfig({
     // Ne ramasse que les tests unitaires/composants, jamais l'E2E Playwright
     include: ['src/**/*.{test,spec}.js', 'tests/unit/**/*.{test,spec}.js'],
     exclude: ['node_modules/**', 'e2e/**', 'dist/**'],
+    // Couverture (npm run test:coverage) : provider v8.
+    // lcov -> coverage/lcov.info consommé par Codecov ; text/html pour le local.
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['src/**/*.{js,vue}'],
+    },
   },
 })
