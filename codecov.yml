@@ -1,0 +1,31 @@
+# Configuration Codecov — gate de couverture calibré "patch-focused".
+# Objectif : bloquer le code NEUF non testé, tout en tolérant une petite
+# variation de la couverture GLOBALE (pour ne pas bloquer bêtement une PR
+# qui ajoute du code legacy ou déplace des fichiers).
+
+coverage:
+  status:
+    # --- Couverture du "patch" = uniquement les lignes ajoutées/modifiées par la PR.
+    # C'est le vrai garde-fou : le code neuf doit être testé.
+    patch:
+      default:
+        target: 75% # au moins 75 % des lignes touchées par la PR doivent être couvertes
+
+    # --- Couverture du "project" = couverture globale du dépôt après la PR.
+    # target: auto  -> la cible est la couverture de la base (branche de destination).
+    # threshold: 2% -> on tolère une baisse jusqu'à 2 % sans faire échouer le check.
+    project:
+      default:
+        target: auto
+        threshold: 2%
+
+# --- Commentaire automatique déposé par Codecov sur chaque PR.
+comment:
+  # Sections affichées, dans l'ordre :
+  #  reach  : évolution de la couverture atteinte
+  #  diff   : couverture du diff de la PR (le patch)
+  #  flags  : couverture par flag (si des flags sont définis)
+  #  files  : couverture fichier par fichier pour les fichiers touchés
+  layout: 'reach, diff, flags, files'
+  # behavior: default -> met à jour un commentaire existant plutôt que d'en réempiler.
+  behavior: default
