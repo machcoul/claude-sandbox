@@ -1,7 +1,9 @@
 name: gitleaks
 on:
+  # Sur les PR, on ne scanne que celles vers develop (la promotion develop → main
+  # rejouerait le même scan). Le push couvre l'historique poussé sur main au merge.
   pull_request:
-    branches: [main, develop]
+    branches: [develop]
   push:
   # Permet aussi un scan complet à la demande depuis l'onglet Actions
   workflow_dispatch:
