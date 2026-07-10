@@ -1,0 +1,32 @@
+name: "Garde-fou — source des PR vers main"
+
+# GitHub ne permet pas de restreindre nativement la branche SOURCE d'une PR.
+# Ce workflow l'impose : toute PR dont la base est `main` doit provenir de `develop`.
+# But : garantir le circuit develop → main (aucun court-circuit, aucune promotion
+# depuis une branche de feature/hotfix directement vers main).
+on:
+  # Se déclenche pour les PR dont la BASE est main. `reopened`/`synchronize` couvrent
+  # les cas où la PR est rouverte ou re-poussée.
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited]
+
+# Aucune écriture nécessaire : simple vérification de contexte.
+permissions:
+  contents: read
+
+jobs:
+  verifie-source:
+    # ⬇️ Nom du check à ajouter aux required status checks de main.
+    name: Source = develop (promotion uniquement)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vérifie que la source est develop
+        run: |
+          set -euo pipefail
+          echo "Base : ${{ github.base_ref }} — Source : ${{ github.head_ref }}"
+          if [ "${{ github.head_ref }}" != "develop" ]; then
+            echo "::error::Les PR vers main doivent provenir de develop (source actuelle : ${{ github.head_ref }})."
+            exit 1
+          fi
+          echo "✅ Source = develop : circuit de promotion respecté."
