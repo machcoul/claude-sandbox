@@ -1,0 +1,40 @@
+name: "DAST — OWASP ZAP baseline"
+
+# Scan DAST (Dynamic Application Security Testing) : ZAP interroge le site
+# DÉPLOYÉ et en marche (contrairement à CodeQL/gitleaks qui analysent le code
+# au repos). On vise donc l'URL de prod Cloudflare Pages, pas le code du repo.
+on:
+  # Scan passif hebdomadaire — chaque lundi à 07h00 UTC.
+  schedule:
+    - cron: "0 7 * * 1"
+  # Lancement manuel depuis l'onglet Actions.
+  workflow_dispatch:
+  # NB : volontairement PAS sur pull_request. Un scan DAST est lent et sollicite
+  # un site en marche → inadapté au feedback rapide d'une PR. C'est un outil
+  # d'exploration, pas un gate de merge.
+
+# Le job a besoin d'écrire une issue GitHub (l'action y publie le rapport) et de
+# lire le contenu du dépôt.
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  zap-baseline:
+    name: Scan ZAP baseline (passif)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          # URL de la prod (Cloudflare Pages). À vérifier dans les settings
+          # Cloudflare si le sous-domaine change.
+          target: "https://claude-sandbox-c7l.pages.dev"
+          # Ne PAS faire échouer le workflow sur les alertes : scan passif
+          # d'apprentissage sur un front statique, on rapporte sans bloquer.
+          fail_action: false
+          # Jeton pour publier le rapport en issue GitHub.
+          token: ${{ secrets.GITHUB_TOKEN }}
