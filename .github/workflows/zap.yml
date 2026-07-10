@@ -1,40 +1,155 @@
-name: "DAST — OWASP ZAP baseline"
+name: "DAST — ZAP baseline (gate preview develop)"
 
-# Scan DAST (Dynamic Application Security Testing) : ZAP interroge le site
-# DÉPLOYÉ et en marche (contrairement à CodeQL/gitleaks qui analysent le code
-# au repos). On vise donc l'URL de prod Cloudflare Pages, pas le code du repo.
+# Scan DAST (Dynamic Application Security Testing) shift-left et BLOQUANT.
+#
+# Principe : on ne scanne PAS sur push (la preview ne serait pas encore en ligne),
+# mais UNIQUEMENT quand Cloudflare Pages a fini de déployer la preview develop et
+# émet un `deployment_status` avec state == success. On scanne alors l'URL stable
+# de preview develop, puis on republie le verdict comme un « commit status » afin
+# qu'il puisse devenir un required status check de la protection de branche.
+#
+# Gate : bloquant sur les alertes High (riskcode 3) ; Medium/Low/Informational sont
+# rapportés sans bloquer. Le tri fin est fait en analysant le rapport JSON de ZAP
+# (les rules ZAP sont par identifiant de règle, pas par niveau de risque — parser
+# le JSON par `riskcode` est la façon fiable d'exprimer « FAIL sur High seulement »).
 on:
-  # Scan passif hebdomadaire — chaque lundi à 07h00 UTC.
-  schedule:
-    - cron: "0 7 * * 1"
-  # Lancement manuel depuis l'onglet Actions.
+  # Émis par Cloudflare Pages à la fin d'un déploiement (preview ou prod).
+  # Le filtrage (success + branche develop) se fait dans le `if:` du job.
+  deployment_status:
+  # Test manuel ad hoc (scanne la preview develop ; ne publie pas de commit status
+  # faute de commit déployé associé).
   workflow_dispatch:
-  # NB : volontairement PAS sur pull_request. Un scan DAST est lent et sollicite
-  # un site en marche → inadapté au feedback rapide d'une PR. C'est un outil
-  # d'exploration, pas un gate de merge.
 
-# Le job a besoin d'écrire une issue GitHub (l'action y publie le rapport) et de
-# lire le contenu du dépôt.
+# statuses:write pour publier le commit status ; contents:read pour le checkout de
+# la config ZAP. Pas d'issues:write : ce workflow est un gate, pas un tracker.
 permissions:
   contents: read
-  issues: write
+  statuses: write
+
+env:
+  # URL stable de la preview develop (alias de branche Cloudflare Pages). Pointe
+  # toujours vers le dernier déploiement develop.
+  PREVIEW_URL: "https://develop.claude-sandbox-c7l.pages.dev/"
+  # Nom (context) du commit status republié — à ajouter aux required status checks.
+  STATUS_CONTEXT: "security/dast-zap"
 
 jobs:
-  zap-baseline:
-    name: Scan ZAP baseline (passif)
+  zap:
+    name: ZAP baseline (High = bloquant)
+    # On ne déclenche que pour un déploiement de la preview develop réussi.
+    # NB Cloudflare : `deployment.ref` = nom de branche déployée. Si votre
+    # intégration renseignait un SHA à la place, ajuster cette condition.
+    if: >-
+      (github.event_name == 'deployment_status' &&
+       github.event.deployment_status.state == 'success' &&
+       github.event.deployment.ref == 'develop') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout du dépôt
+      - name: Checkout (config ZAP)
         uses: actions/checkout@v4
+
+      # Rend le check visible tôt (état « pending ») sur le commit déployé, le temps
+      # que le scan tourne.
+      - name: Commit status « en cours »
+        if: github.event_name == 'deployment_status'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X POST "/repos/${{ github.repository }}/statuses/${{ github.event.deployment.sha }}" \
+            -f state=pending \
+            -f context="${STATUS_CONTEXT}" \
+            -f description="Scan DAST ZAP de la preview develop en cours…" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
-          # URL de la prod (Cloudflare Pages). À vérifier dans les settings
-          # Cloudflare si le sous-domaine change.
-          target: "https://claude-sandbox-c7l.pages.dev"
-          # Ne PAS faire échouer le workflow sur les alertes : scan passif
-          # d'apprentissage sur un front statique, on rapporte sans bloquer.
+          target: ${{ env.PREVIEW_URL }}
+          # On NE laisse PAS l'action décider du pass/fail : le gating fin (High
+          # bloquant, reste non bloquant) est calculé à partir du rapport JSON.
           fail_action: false
-          # Jeton pour publier le rapport en issue GitHub.
+          # Pas d'issue GitHub auto : ce workflow est un gate.
+          allow_issue_writing: false
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Analyse du rapport (High = bloquant)
+        id: triage
+        run: |
+          set -euo pipefail
+          report="$(find "${GITHUB_WORKSPACE}" -maxdepth 3 -name 'report_json.json' | head -n1)"
+          if [ -z "${report}" ] || [ ! -s "${report}" ]; then
+            echo "Rapport ZAP introuvable — le scan a probablement échoué (site injoignable ?)." >&2
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          # riskcode : 3=High, 2=Medium, 1=Low, 0=Informational.
+          high=$(jq   '[.site[].alerts[]? | select(.riskcode=="3")] | length' "${report}")
+          medium=$(jq '[.site[].alerts[]? | select(.riskcode=="2")] | length' "${report}")
+          low=$(jq    '[.site[].alerts[]? | select(.riskcode=="1")] | length' "${report}")
+          info=$(jq   '[.site[].alerts[]? | select(.riskcode=="0")] | length' "${report}")
+          {
+            echo "high=$high"
+            echo "medium=$medium"
+            echo "low=$low"
+            echo "info=$info"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## Résultat ZAP — preview develop"
+            echo ""
+            echo "| Risque | Nb |"
+            echo "|---|---|"
+            echo "| 🔴 High | $high |"
+            echo "| 🟠 Medium | $medium |"
+            echo "| 🟡 Low | $low |"
+            echo "| ⚪ Informational | $info |"
+            echo ""
+            if [ "$high" -gt 0 ]; then
+              echo "**Gate : ÉCHEC** — $high alerte(s) High bloquante(s) :"
+              echo ""
+              jq -r '.site[].alerts[]? | select(.riskcode=="3") | "- \(.name) — \(.riskdesc)"' "${report}"
+            else
+              echo "**Gate : OK** — aucune alerte High. Medium/Low/Info rapportés sans bloquer."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Republie le verdict comme commit status (context = security/dast-zap) sur le
+      # commit déployé, pour l'utiliser en required status check.
+      - name: Commit status (verdict)
+        if: always() && github.event_name == 'deployment_status'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          found="${{ steps.triage.outputs.found }}"
+          high="${{ steps.triage.outputs.high }}"
+          if [ "${found}" != "true" ]; then
+            state="error";   desc="Scan ZAP non concluant (rapport introuvable)."
+          elif [ "${high:-0}" -gt 0 ]; then
+            state="failure"; desc="${high} alerte(s) High — merge bloqué."
+          else
+            state="success"; desc="Aucune alerte High. Medium/Low/Info non bloquants."
+          fi
+          gh api -X POST "/repos/${{ github.repository }}/statuses/${{ github.event.deployment.sha }}" \
+            -f state="${state}" \
+            -f context="${STATUS_CONTEXT}" \
+            -f description="${desc}" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      # Fait aussi échouer le job lui-même (utile pour le run manuel et pour voir
+      # le rouge dans Actions), en cohérence avec le commit status.
+      - name: Gate — échec si High (ou scan non concluant)
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.triage.outputs.found }}" != "true" ]; then
+            echo "Scan ZAP non concluant (rapport manquant) → échec." >&2
+            exit 1
+          fi
+          high="${{ steps.triage.outputs.high }}"
+          if [ "${high:-0}" -gt 0 ]; then
+            echo "❌ ${high} alerte(s) High → gate bloquant." >&2
+            exit 1
+          fi
+          echo "✅ Aucune alerte High — gate franchi."
