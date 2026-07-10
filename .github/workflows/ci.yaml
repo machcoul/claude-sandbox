@@ -4,6 +4,10 @@ on:
     branches: [main, develop]
 jobs:
   build:
+    # Lint + tests + build : contrôle générique déjà joué sur les PR vers develop.
+    # Inutile de le rejouer à l'identique sur la promotion develop → main (le code
+    # y est déjà passé). On limite donc ce job aux PR vers develop.
+    if: github.base_ref == 'develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
