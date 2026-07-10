@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (config ZAP)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
