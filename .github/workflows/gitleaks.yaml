@@ -1,10 +1,15 @@
 name: gitleaks
 on:
-  # On ne scanne QUE les PR vers develop : le code n'est scanné qu'une seule fois,
-  # à l'entrée de develop. Aucun re-scan au merge (ni develop ni main) — le code y
-  # est déjà celui qui a été scanné.
+  # Un secret exposé est le risque le plus grave et irréversible : on scanne donc
+  # dès le push d'une branche de feature (détection précoce), pour l'attraper au
+  # plus tôt. On exclut main ET develop du push car ces branches sont protégées
+  # (aucun push direct possible) et leur contenu y arrive déjà via une PR scannée →
+  # re-scanner au merge serait redondant. Le pull_request:[develop] couvre l'entrée
+  # dans develop.
   pull_request:
     branches: [develop]
+  push:
+    branches-ignore: [main, develop]
   # Permet aussi un scan complet à la demande depuis l'onglet Actions
   workflow_dispatch:
 # Sur les events pull_request, l'action liste les commits de la PR via l'API
