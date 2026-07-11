@@ -88,7 +88,7 @@ Chaque contrôle tourne **là où il a du sens, une seule fois** : la qualité e
 
 **Garanties à l'entrée en production** : aucun code n'atteint `main` sans provenir de `develop` (donc déjà testé), sans migrations valides contre la base de prod, et sans scan dynamique du site déployé exempt de faille High/Critical.
 
-Aucun scan n'est rejoué inutilement : CodeQL et gitleaks tournent à l'entrée de `develop`, pas au merge sur `main` (le code y vient forcément de `develop`, déjà scanné). gitleaks scanne en plus les branches de feature dès le push, pour détecter un secret au plus tôt ; CodeQL complète par un passage hebdomadaire sur le code en production.
+Aucun scan n'est rejoué : CodeQL et gitleaks ne tournent qu'à l'entrée de `develop` (sur les PR), une seule fois. Aucun re-scan au merge, ni sur `develop` ni sur `main` — le code y est déjà celui qui a été scanné. CodeQL complète par un passage hebdomadaire automatique.
 
 Le déclenchement des actions automatiques, étape par étape :
 
