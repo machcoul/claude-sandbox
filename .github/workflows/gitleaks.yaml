@@ -1,10 +1,15 @@
 name: gitleaks
 on:
   # Sur les PR, on ne scanne que celles vers develop (la promotion develop → main
-  # rejouerait le même scan). Le push couvre l'historique poussé sur main au merge.
+  # rejouerait le même scan).
   pull_request:
     branches: [develop]
+  # Sur push, on scanne toutes les branches SAUF main : un merge sur main provient
+  # forcément de develop (déjà scanné en PR), inutile de rejouer. En revanche, un
+  # push sur une branche de feature déclenche gitleaks pour détecter un secret au
+  # plus tôt.
   push:
+    branches-ignore: [main]
   # Permet aussi un scan complet à la demande depuis l'onglet Actions
   workflow_dispatch:
 # Sur les events pull_request, l'action liste les commits de la PR via l'API
