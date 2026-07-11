@@ -1,11 +1,9 @@
 name: "CodeQL"
 
 on:
-  push:
-    branches: [main, develop]
-  # Sur les PR, on n'analyse que celles vers develop : la promotion develop → main
-  # rejouerait à l'identique une analyse déjà faite. Le push sur main (au merge) et
-  # le schedule hebdomadaire couvrent la prod.
+  # On n'analyse QUE les PR vers develop : le code n'est scanné qu'une seule fois,
+  # à l'entrée de develop. Aucun re-scan au merge (ni develop ni main) — le code y
+  # est déjà celui qui a été analysé. Le schedule hebdomadaire couvre la prod.
   pull_request:
     branches: [develop]
   schedule:

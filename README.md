@@ -84,9 +84,11 @@ Chaque contrôle tourne **là où il a du sens, une seule fois** : la qualité e
 | **Merge dans `develop`** | Migrations réelles vers base **dev** ; déploiement **preview** Cloudflare | — |
 | **PR `develop` → `main`** | `migration-check` (dry-run vs base **prod**), **OWASP ZAP** (scan de la preview develop, bloquant sur High/Critical), garde-fou « source = develop » | Oui |
 | **Merge dans `main`** | Migrations réelles vers base **prod** ; déploiement **production** Cloudflare | — |
-| **Planifié (hebdo)** | CodeQL (re-scan), Dependabot (dépendances) | — |
+| **Planifié (hebdo)** | CodeQL (re-scan complet du code en production, avec règles à jour), Dependabot (dépendances) | — |
 
 **Garanties à l'entrée en production** : aucun code n'atteint `main` sans provenir de `develop` (donc déjà testé), sans migrations valides contre la base de prod, et sans scan dynamique du site déployé exempt de faille High/Critical.
+
+Le calibrage des scans suit la criticité du risque. **gitleaks** (détection de secrets) tourne dès le push d'une branche de feature, pour attraper un secret au plus tôt — un secret exposé est grave et irréversible. Les branches `develop` et `main`, protégées, ne sont pas re-scannées au push (leur contenu y arrive via une PR déjà scannée). **CodeQL** (analyse du code) tourne une seule fois, à l'entrée de `develop`, complété par un scan hebdomadaire — l'analyse statique n'a pas la même urgence. Aucun scan ne se rejoue au merge.
 
 Le déclenchement des actions automatiques, étape par étape :
 
