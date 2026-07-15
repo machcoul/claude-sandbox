@@ -22,7 +22,7 @@ jobs:
       - run: npm run test:coverage
       # Publication de la couverture sur Codecov (repo public : aucun token requis).
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
